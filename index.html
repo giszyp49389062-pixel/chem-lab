@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>化学社团实验申请系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: #eef2f7; padding: 20px; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+        .app-container { max-width: 1400px; width: 100%; background: white; border-radius: 32px; box-shadow: 0 20px 35px -12px rgba(0,0,0,0.15); overflow: hidden; }
+        .header { background: #1e3c72; color: white; padding: 1.2rem 2rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; }
+        .logo h2 { font-weight: 600; font-size: 1.5rem; }
+        .user-info { background: rgba(255,255,255,0.15); padding: 8px 18px; border-radius: 40px; display: flex; align-items: center; gap: 12px; }
+        .logout-btn { background: #dc2626; border: none; padding: 6px 14px; border-radius: 30px; color: white; cursor: pointer; }
+        .view-panel { padding: 2rem; background: #f9fafc; }
+        .card { background: white; border-radius: 24px; padding: 1.8rem; margin-bottom: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .card-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1.5rem; border-left: 5px solid #1e3c72; padding-left: 1rem; }
+        .form-group { margin-bottom: 1.3rem; }
+        label { font-weight: 600; display: block; margin-bottom: 6px; }
+        input, textarea { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 16px; }
+        input::placeholder { color: #999; font-size: 0.85rem; }
+        .btn { background: #1e3c72; color: white; border: none; padding: 12px 28px; border-radius: 40px; cursor: pointer; }
+        .btn-success { background: #2b6e4f; }
+        .btn-danger { background: #b91c1c; }
+        .btn-outline { background: transparent; border: 1px solid #1e3c72; color: #1e3c72; }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .dynamic-item { background: #f1f5f9; padding: 12px; border-radius: 20px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+        .dynamic-item input { flex: 2; min-width: 120px; }
+        .dynamic-item input.qty-input { flex: 1; min-width: 80px; }
+        .dynamic-item input.unit-input { flex: 1; min-width: 80px; }
+        .remove-btn { background: #e2e8f0; border: none; padding: 8px 12px; border-radius: 40px; cursor: pointer; }
+        .autocomplete-wrapper { position: relative; flex: 2; }
+        .autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 16px; max-height: 180px; overflow-y: auto; z-index: 100; list-style: none; padding: 0; margin: 4px 0 0; }
+        .autocomplete-list li { padding: 8px 14px; cursor: pointer; }
+        .autocomplete-list li:hover { background: #eef2ff; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { border: 1px solid #ddd; padding: 12px 8px; font-size: 0.85rem; }
+        .table-wrapper { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+        .hidden { display: none; }
+        .error-msg { background: #fee; color: #c00; padding: 12px; border-radius: 16px; margin-bottom: 20px; }
+        @media (max-width: 700px) { .view-panel { padding: 1rem; } .dynamic-item { flex-direction: column; } }
+        .status-badge { background: #e6f7e6; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .toggle-btn { background: transparent; border: 1px solid #fff; color: white; padding: 8px 16px; border-radius: 30px; cursor: pointer; margin-left: 10px; }
+        .toggle-btn:hover { background: rgba(255,255,255,0.2); }
+        .admin-settings { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 16px; padding: 20px; margin-top: 20px; display: none; }
+        .admin-settings.show { display: block; }
+        .password-cell { font-family: monospace; background: #f5f5f5; padding: 4px 8px; border-radius: 8px; font-size: 12px; }
+        .time-input-group { display: flex; gap: 8px; flex-wrap: wrap; }
+        .time-input-group input { flex: 1; }
+        .login-form { max-width: 450px; margin: 2rem auto; }
+        .delete-btn { background: #dc2626; color: white; border: none; padding: 4px 10px; border-radius: 16px; cursor: pointer; font-size: 12px; }
+        .delete-btn:hover { background: #b91c1c; }
+        .action-buttons { display: flex; gap: 8px; justify-content: center; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div id="loginView" class="view-panel">
+        <div class="card login-form">
+            <div class="card-title"><i class="fas fa-flask"></i> 化学社团实验管理系统</div>
+            <div id="statusMsg" class="error-msg" style="display:none;"></div>
+            <div class="form-group"><label>账号</label><input type="text" id="loginUsername" placeholder="请输入账号" autocomplete="off"></div>
+            <div class="form-group"><label>密码</label><input type="password" id="loginPassword" placeholder="请输入密码" onkeypress="handleKeyPress(event)"></div>
+            <button class="btn" id="loginBtn" style="width:100%">登入系统</button>
+        </div>
+    </div>
+    <div id="teacherView" class="view-panel hidden">
+        <div class="header" style="background:#2c5282;"><div class="logo"><h2><i class="fas fa-chalkboard-teacher"></i> 实验申请中心</h2></div><div class="user-info"><span id="teacherNameSpan">教师</span><button class="logout-btn" id="teacherLogout">退出</button></div></div>
+        <div class="card"><div class="card-title">📝 填写实验申请</div><form id="applyForm">
+            <div class="form-group"><label>实验名称 *</label><input type="text" id="expName" required placeholder="例如：酸碱中和滴定实验"></div>
+            <div class="form-group"><label>📅 申请时间</label>
+                <div class="time-input-group">
+                    <input type="number" id="weekNum" placeholder="第几周 (1-22)" min="1" max="22" step="1">
+                    <input type="number" id="weekDay" placeholder="星期几 (1-7)" min="1" max="7" step="1">
+                    <input type="number" id="timeRange" placeholder="时间 (8-18点)" min="8" max="18" step="1">
+                </div>
+                <small style="color:#666; font-size:12px;">💡 第几周：1-22 | 星期几：1-7 | 时间：8-18点</small>
+            </div>
+            <div class="form-group"><label>🧪 需要使用的器材 <button type="button" id="addEquipmentBtn" class="btn-outline" style="padding:4px 12px;">+ 添加器材</button></label><div id="equipmentList"></div></div>
+            <div class="form-group"><label>💊 需要使用的药品 <button type="button" id="addReagentBtn" class="btn-outline" style="padding:4px 12px;">+ 添加药品</button></label><div id="reagentList"></div></div>
+            <div class="form-group"><label>👩‍🏫 社团老师</label><input type="text" id="teacherName" placeholder="负责老师姓名"></div>
+            <div class="form-group"><label>🧑‍🎓 参加学生人数</label><input type="number" id="studentCount" placeholder="数量" min="1" max="1500" step="1"></div>
+            <div class="form-group"><label>📝 备注</label><textarea rows="3" id="remark" placeholder="其他特殊要求..."></textarea></div>
+            <button type="submit" class="btn btn-success">提交申请</button>
+        </form></div>
+        <div class="card"><div class="card-title">📋 我的申请记录</div><div class="table-wrapper"><table class="data-table"><thead> <th>实验名称</th><th>时间</th><th>器材</th><th>药品</th><th>老师/人数</th><th>备注</th><th>日期</th> </thead><tbody id="teacherRecords"></tbody>    </table></div></div>
+    </div>
+    <div id="adminView" class="view-panel hidden">
+        <div class="header" style="background:#1a4d3e;"><div class="logo"><h2><i class="fas fa-user-cog"></i> 管理员后台</h2></div><div class="user-info"><span>管理员</span><button class="logout-btn" id="adminLogout">退出</button></div></div>
+        
+        <div class="card">
+            <div class="card-title">🔐 管理员设置 
+                <button id="toggleAdminSettingsBtn" class="toggle-btn" style="background:#2c5282; border:none; color:white; padding:5px 15px; font-size:14px;">显示设置</button>
+            </div>
+            <div id="adminSettingsPanel" class="admin-settings">
+                <div class="form-group"><label>新账号</label><input type="text" id="newAdminUser" placeholder="管理员账号"></div>
+                <div class="form-group"><label>新密码</label><input type="password" id="newAdminPass" placeholder="管理员密码"></div>
+                <button id="updateAdminBtn" class="btn">更新管理员信息</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">👥 教师账号管理 
+                <button id="showAddTeacher" class="btn-outline" style="padding:4px 12px;">+ 添加教师账号</button>
+            </div>
+            <div id="addTeacherForm" style="display:none; margin-bottom:20px; padding:15px; background:#f5f5f5; border-radius:16px;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <input type="text" id="newTeacherUser" placeholder="教师账号" style="flex:2">
+                    <input type="text" id="newTeacherPass" placeholder="密码" style="flex:2">
+                    <button id="confirmAddTeacher" class="btn">确认添加</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead> <th>教师账号</th><th>密码</th><th>操作</th> </thead>
+                    <tbody id="teacherList"></tbody>
+                 </table>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📊 所有实验申请记录 
+                <button id="exportDocBtn" class="btn-outline btn-sm" style="float:right; margin-left:10px;"><i class="fas fa-file-word"></i> 导出DOC</button>
+                <button id="clearAllRecordsBtn" class="btn-danger btn-sm" style="float:right; background:#b91c1c; color:white; padding:6px 12px; border-radius:20px; border:none; cursor:pointer;"><i class="fas fa-trash"></i> 清空所有记录</button>
+            </div>
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead> 
+                        <th>序号</th><th>申请人</th><th>实验名称</th><th>第几周</th><th>星期几</th><th>时间</th><th>器材</th><th>药品</th><th>老师/人数</th><th>备注</th><th>提交日期</th><th>操作</th>
+                    </thead>
+                    <tbody id="allRecords"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 使用 localStorage 存储数据
+let currentUser = null;
+
+// 初始化数据
+function initData() {
+    if (!localStorage.getItem('users')) {
+        localStorage.setItem('users', JSON.stringify([
+            { username: 'admin', password: 'admin', role: 'admin' },
+            { username: 'zhangteacher', password: '123456', role: 'teacher' }
+        ]));
+    }
+    if (!localStorage.getItem('experiments')) {
+        localStorage.setItem('experiments', JSON.stringify([]));
+    }
+}
+
+initData();
+
+function getUsers() { return JSON.parse(localStorage.getItem('users')); }
+function saveUsers(users) { localStorage.setItem('users', JSON.stringify(users)); }
+function getExperiments() { return JSON.parse(localStorage.getItem('experiments')); }
+function saveExperiments(exps) { localStorage.setItem('experiments', JSON.stringify(exps)); }
+
+// 保存登录状态到 localStorage
+function saveLoginState(username, role) {
+    if (username && role) {
+        localStorage.setItem('loggedInUser', JSON.stringify({ username, role }));
+    } else {
+        localStorage.removeItem('loggedInUser');
+    }
+}
+
+// 获取保存的登录状态
+function getSavedLoginState() {
+    const saved = localStorage.getItem('loggedInUser');
+    if (saved) {
+        try {
+            return JSON.parse(saved);
+        } catch(e) {
+            return null;
+        }
+    }
+    return null;
+}
+
+// 视图切换
+const loginView = document.getElementById('loginView');
+const teacherView = document.getElementById('teacherView');
+const adminView = document.getElementById('adminView');
+
+function showLogin() {
+    loginView.classList.remove('hidden');
+    teacherView.classList.add('hidden');
+    adminView.classList.add('hidden');
+    currentUser = null;
+    saveLoginState(null, null);
+    document.getElementById('loginUsername').value = '';
+    document.getElementById('loginPassword').value = '';
+    document.getElementById('statusMsg').style.display = 'none';
+}
+
+// 登录函数
+function doLogin(username, password, saveState = true) {
+    const users = getUsers();
+    const user = users.find(u => u.username === username && u.password === password);
+    
+    if (!user) {
+        document.getElementById('statusMsg').style.display = 'block';
+        document.getElementById('statusMsg').innerHTML = '❌ 账号或密码错误！';
+        return false;
+    }
+    
+    document.getElementById('statusMsg').style.display = 'none';
+    currentUser = user;
+    
+    if (saveState) {
+        saveLoginState(user.username, user.role);
+    }
+    
+    if (user.role === 'admin') {
+        adminView.classList.remove('hidden');
+        loginView.classList.add('hidden');
+        teacherView.classList.add('hidden');
+        renderAdmin();
+    } else {
+        teacherView.classList.remove('hidden');
+        loginView.classList.add('hidden');
+        adminView.classList.add('hidden');
+        document.getElementById('teacherNameSpan').innerText = user.username;
+        renderTeacher(user.username);
+    }
+    return true;
+}
+
+// 从保存的状态恢复登录
+function restoreLoginState() {
+    const savedState = getSavedLoginState();
+    if (savedState && savedState.username) {
+        const users = getUsers();
+        const user = users.find(u => u.username === savedState.username);
+        if (user) {
+            // 恢复登录，但不重新保存状态
+            currentUser = user;
+            if (user.role === 'admin') {
+                adminView.classList.remove('hidden');
+                loginView.classList.add('hidden');
+                teacherView.classList.add('hidden');
+                renderAdmin();
+            } else if (user.role === 'teacher') {
+                teacherView.classList.remove('hidden');
+                loginView.classList.add('hidden');
+                adminView.classList.add('hidden');
+                document.getElementById('teacherNameSpan').innerText = user.username;
+                renderTeacher(user.username);
+            }
+            return true;
+        } else {
+            // 保存的用户不存在，清除保存的状态
+            saveLoginState(null, null);
+        }
+    }
+    return false;
+}
+
+// 退出登录
+function logout() {
+    saveLoginState(null, null);
+    showLogin();
+}
+
+// 回车键登录
+function handleKeyPress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+        doLogin(username, password, true);
+    }
+}
+
+// 登录按钮点击
+document.getElementById('loginBtn').onclick = () => {
+    const username = document.getElementById('loginUsername').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    doLogin(username, password, true);
+};
+
+function renderTeacher(username) {
+    const exps = getExperiments().filter(e => e.teacherUsername === username);
+    const tbody = document.getElementById('teacherRecords');
+    tbody.innerHTML = exps.map(exp => `
+         <tr>
+             <td>${escapeHtml(exp.expName)}</td>
+             <td>${exp.weekNum || ''}周 ${exp.weekDay || ''} ${exp.timeRange || ''}点</td>
+             <td>${(exp.equipments || []).map(e => e.name + ' x' + e.qty + (e.unit ? ' ' + e.unit : '')).join(', ') || '-'}</td>
+             <td>${(exp.reagents || []).map(r => r.name + ' x' + r.qty).join(', ') || '-'}</td>
+             <td>${exp.teacherName || ''}/${exp.studentCount}</td>
+             <td>${escapeHtml(exp.remark || '')}</td>
+             <td>${new Date(exp.createdAt).toLocaleString()}</td>
+         </tr>
+    `).join('');
+}
+
+// 删除单条实验记录
+window.deleteExperiment = function(id) {
+    if(confirm('确定要删除这条实验申请记录吗？此操作不可恢复！')) {
+        let exps = getExperiments();
+        exps = exps.filter(e => e.id !== id);
+        saveExperiments(exps);
+        renderAdmin();
+        if(currentUser && currentUser.role === 'teacher') {
+            renderTeacher(currentUser.username);
+        }
+        alert('删除成功！');
+    }
+};
+
+// 清空所有记录
+function clearAllRecords() {
+    if(confirm('⚠️ 警告：这将删除所有实验申请记录，不可恢复！确定要继续吗？')) {
+        if(confirm('再次确认：真的要清空所有实验申请记录吗？')) {
+            saveExperiments([]);
+            renderAdmin();
+            if(currentUser && currentUser.role === 'teacher') {
+                renderTeacher(currentUser.username);
+            }
+            alert('所有记录已清空！');
+        }
+    }
+}
+
+function renderAdmin() {
+    const users = getUsers();
+    const teachers = users.filter(u => u.role === 'teacher');
+    document.getElementById('teacherList').innerHTML = teachers.map(t => `
+         <tr>
+             <td>${escapeHtml(t.username)}</td>
+             <td><span class="password-cell">${escapeHtml(t.password)}</span></td>
+             <td><button onclick="deleteTeacher('${t.username}')" class="btn-danger btn-sm" style="padding:4px 12px;">删除</button></td>
+         </tr>
+    `).join('');
+    
+    const allExps = getExperiments();
+    document.getElementById('allRecords').innerHTML = allExps.map((exp, index) => `
+         <tr>
+             <td>${index + 1}</td>
+             <td>${escapeHtml(exp.teacherUsername)}</td>
+             <td>${escapeHtml(exp.expName)}</td>
+             <td>${exp.weekNum || ''}</td>
+             <td>${exp.weekDay || ''}</td>
+             <td>${exp.timeRange || ''}点</td>
+             <td>${(exp.equipments || []).map(e => e.name + ' x' + e.qty + (e.unit ? ' ' + e.unit : '')).join('; ') || '-'}</td>
+             <td>${(exp.reagents || []).map(r => r.name + ' x' + r.qty).join('; ') || '-'}</td>
+             <td>${exp.teacherName || ''}/${exp.studentCount || 0}</td>
+             <td>${escapeHtml(exp.remark || '')}</td>
+             <td>${new Date(exp.createdAt).toLocaleString()}</td>
+            <td class="action-buttons"><button onclick="deleteExperiment(${exp.id})" class="delete-btn"><i class="fas fa-trash"></i> 删除</button></td>
+         </tr>
+    `).join('');
+}
+
+window.deleteTeacher = function(username) {
+    if(confirm('删除教师账号后，该教师的申请记录仍会保留。确定删除吗？')) {
+        let users = getUsers();
+        users = users.filter(u => u.username !== username);
+        saveUsers(users);
+        renderAdmin();
+        alert('教师账号已删除');
+    }
+};
+
+// 管理员设置
+const adminSettingsPanel = document.getElementById('adminSettingsPanel');
+const toggleAdminBtn = document.getElementById('toggleAdminSettingsBtn');
+
+toggleAdminBtn.onclick = () => {
+    if (adminSettingsPanel.classList.contains('show')) {
+        adminSettingsPanel.classList.remove('show');
+        toggleAdminBtn.textContent = '显示设置';
+        toggleAdminBtn.style.background = '#2c5282';
+    } else {
+        adminSettingsPanel.classList.add('show');
+        toggleAdminBtn.textContent = '隐藏设置';
+        toggleAdminBtn.style.background = '#b91c1c';
+    }
+};
+
+document.getElementById('updateAdminBtn').onclick = () => {
+    let users = getUsers();
+    const adminIndex = users.findIndex(u => u.role === 'admin');
+    const newUser = document.getElementById('newAdminUser').value.trim();
+    const newPass = document.getElementById('newAdminPass').value.trim();
+    
+    if (newUser) users[adminIndex].username = newUser;
+    if (newPass) users[adminIndex].password = newPass;
+    
+    if (!newUser && !newPass) {
+        alert('请至少填写一项修改内容');
+        return;
+    }
+    
+    saveUsers(users);
+    alert('管理员信息已更新！请使用新账号密码重新登录');
+    document.getElementById('newAdminUser').value = '';
+    document.getElementById('newAdminPass').value = '';
+    adminSettingsPanel.classList.remove('show');
+    toggleAdminBtn.textContent = '显示设置';
+    toggleAdminBtn.style.background = '#2c5282';
+    // 更新当前登录用户信息
+    if (currentUser && currentUser.role === 'admin') {
+        if (newUser) currentUser.username = newUser;
+        if (newPass) currentUser.password = newPass;
+        saveLoginState(currentUser.username, currentUser.role);
+    }
+};
+
+document.getElementById('showAddTeacher').onclick = () => {
+    const form = document.getElementById('addTeacherForm');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+};
+
+document.getElementById('confirmAddTeacher').onclick = () => {
+    const newUser = document.getElementById('newTeacherUser').value.trim();
+    const newPass = document.getElementById('newTeacherPass').value.trim();
+    
+    if (!newUser || !newPass) { 
+        alert('请填写完整的教师账号和密码'); 
+        return; 
+    }
+    
+    let users = getUsers();
+    if (users.find(u => u.username === newUser)) { 
+        alert('账号已存在，请使用其他账号名'); 
+        return; 
+    }
+    
+    users.push({ username: newUser, password: newPass, role: 'teacher' });
+    saveUsers(users);
+    document.getElementById('newTeacherUser').value = '';
+    document.getElementById('newTeacherPass').value = '';
+    document.getElementById('addTeacherForm').style.display = 'none';
+    renderAdmin();
+    alert(`教师账号 ${newUser} 添加成功！密码：${newPass}`);
+};
+
+// 清空所有记录按钮
+document.getElementById('clearAllRecordsBtn').onclick = clearAllRecords;
+
+// 导出DOC
+document.getElementById('exportDocBtn').onclick = () => {
+    const exps = getExperiments();
+    
+    let html = `<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>化学社团实验申请记录</title>
+        <style>
+            body { font-family: 'Microsoft YaHei', 'SimHei', '宋体', Arial, sans-serif; margin: 40px; background: #fff; }
+            h1 { text-align: center; color: #1e3c72; margin-bottom: 10px; font-size: 24px; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; border-bottom: 2px solid #1e3c72; padding-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+            th { background: #1e3c72; color: white; padding: 12px 8px; font-weight: bold; border: 1px solid #2c5282; text-align: center; font-size: 13px; }
+            td { padding: 10px 8px; border: 1px solid #ddd; text-align: center; vertical-align: top; }
+            tr:nth-child(even) { background: #f8f9fa; }
+            tr:hover { background: #e8f0fe; }
+            .footer { margin-top: 30px; text-align: right; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 15px; }
+            .badge { background: #e6f7e6; color: #2e7d32; padding: 2px 6px; border-radius: 10px; font-size: 10px; }
+        </style>
+    </head>
+    <body>
+        <h1>🧪 化学社团实验申请记录汇总表</h1>
+        <div class="subtitle">生成时间：${new Date().toLocaleString()} | 共 ${exps.length} 条记录</div>
+        <table>
+            <thead><tr><th>序号</th><th>申请人</th><th>实验名称</th><th>第几周</th><th>星期几</th><th>时间(点)</th><th>器材名称</th><th>器材数量</th><th>器材单位</th><th>药品名称</th><th>药品数量</th><th>社团老师</th><th>学生人数</th><th>备注</th><th>提交日期</th></tr></thead>
+            <tbody>`;
+    
+    exps.forEach((exp, index) => {
+        const equipments = exp.equipments || [];
+        const reagents = exp.reagents || [];
+        const maxRows = Math.max(equipments.length, reagents.length, 1);
+        
+        for (let i = 0; i < maxRows; i++) {
+            const eq = equipments[i] || { name: '', qty: '', unit: '' };
+            const rg = reagents[i] || { name: '', qty: '' };
+            
+            html += `<tr>
+                <td>${index + 1}${i === 0 ? '' : '<span class="badge">续</span>'}</td>
+                <td>${i === 0 ? escapeHtml(exp.teacherUsername) : ''}</td>
+                <td>${i === 0 ? escapeHtml(exp.expName) : ''}</td>
+                <td>${i === 0 ? (exp.weekNum || '') : ''}</td>
+                <td>${i === 0 ? (exp.weekDay || '') : ''}</td>
+                <td>${i === 0 ? (exp.timeRange || '') : ''}</td>
+                <td>${eq.name || ''}</td>
+                <td>${eq.qty || ''}</td>
+                <td>${eq.unit || ''}</td>
+                <td>${rg.name || ''}</td>
+                <td>${rg.qty || ''}</td>
+                <td>${i === 0 ? (exp.teacherName || '') : ''}</td>
+                <td>${i === 0 ? (exp.studentCount || '') : ''}</td>
+                <td>${i === 0 ? escapeHtml(exp.remark || '') : ''}</td>
+                <td>${i === 0 ? new Date(exp.createdAt).toLocaleString() : ''}</td>
+            </tr>`;
+        }
+    });
+    
+    html += `</tbody></table><div class="footer">📊 共 ${exps.length} 条实验申请记录 | 导出时间：${new Date().toLocaleString()}</div></body></html>`;
+    
+    const blob = new Blob([html], { type: 'application/msword' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `化学实验申请记录_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.doc`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+};
+
+function escapeHtml(str) {
+    if(!str) return '';
+    return str.replace(/[&<>]/g, function(m) {
+        if(m==='&') return '&amp;';
+        if(m==='<') return '&lt;';
+        if(m==='>') return '&gt;';
+        return m;
+    });
+}
+
+// 器材药品库
+const ITEMS = { 
+    equipments: ["烧杯","量筒","酒精灯","试管","铁架台","滴定管","锥形瓶","玻璃棒","漏斗","蒸发皿","石棉网","胶头滴管","容量瓶","坩埚","三脚架"], 
+    reagents: ["盐酸","氢氧化钠","酚酞","甲基橙","硫酸铜","氯化钠","乙醇","蒸馏水","高锰酸钾","过氧化氢","淀粉溶液","硝酸银","硫酸","氨水","碳酸钠"] 
+};
+
+function createAutocomplete(placeholder, source) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'autocomplete-wrapper';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = placeholder;
+    wrapper.appendChild(input);
+    input.addEventListener('input', function() {
+        const old = wrapper.querySelector('.autocomplete-list');
+        if(old) old.remove();
+        const val = this.value.trim();
+        if(!val) return;
+        const filtered = source.filter(s => s.includes(val));
+        if(!filtered.length) return;
+        const ul = document.createElement('ul');
+        ul.className = 'autocomplete-list';
+        filtered.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            li.onclick = () => { input.value = item; ul.remove(); };
+            ul.appendChild(li);
+        });
+        wrapper.appendChild(ul);
+        setTimeout(() => document.addEventListener('click', function close(e) { if(!wrapper.contains(e.target)) { ul.remove(); document.removeEventListener('click', close); } }), 10);
+    });
+    return { wrapper, input };
+}
+
+function addEquipmentRow(container, source) {
+    const div = document.createElement('div');
+    div.className = 'dynamic-item';
+    const nameWrapper = createAutocomplete("器材名称", source);
+    const qty = document.createElement('input');
+    qty.type = 'number';
+    qty.placeholder = '数量';
+    qty.className = 'qty-input';
+    const unit = document.createElement('input');
+    unit.type = 'text';
+    unit.placeholder = '单位(瓶/个/克/毫升)';
+    unit.className = 'unit-input';
+    const remove = document.createElement('button');
+    remove.textContent = '删除';
+    remove.className = 'remove-btn';
+    remove.onclick = () => div.remove();
+    div.appendChild(nameWrapper.wrapper);
+    div.appendChild(qty);
+    div.appendChild(unit);
+    div.appendChild(remove);
+    container.appendChild(div);
+}
+
+function addReagentRow(container, source) {
+    const div = document.createElement('div');
+    div.className = 'dynamic-item';
+    const nameWrapper = createAutocomplete("药品名称", source);
+    const qty = document.createElement('input');
+    qty.type = 'number';
+    qty.placeholder = '数量';
+    qty.className = 'qty-input';
+    const remove = document.createElement('button');
+    remove.textContent = '删除';
+    remove.className = 'remove-btn';
+    remove.onclick = () => div.remove();
+    div.appendChild(nameWrapper.wrapper);
+    div.appendChild(qty);
+    div.appendChild(remove);
+    container.appendChild(div);
+}
+
+document.getElementById('addEquipmentBtn').onclick = () => addEquipmentRow(document.getElementById('equipmentList'), ITEMS.equipments);
+document.getElementById('addReagentBtn').onclick = () => addReagentRow(document.getElementById('reagentList'), ITEMS.reagents);
+
+document.getElementById('applyForm').onsubmit = (e) => {
+    e.preventDefault();
+    if(!currentUser || currentUser.role !== 'teacher') { alert('请以教师身份登录'); return; }
+    const expName = document.getElementById('expName').value.trim();
+    if(!expName) { alert('请输入实验名称'); return; }
+    
+    const equipments = [];
+    document.querySelectorAll('#equipmentList .dynamic-item').forEach(row => {
+        const name = row.querySelector('.autocomplete-wrapper input')?.value.trim();
+        const qty = row.querySelector('.qty-input')?.value;
+        const unit = row.querySelector('.unit-input')?.value.trim();
+        if(name && qty) equipments.push({ name, qty: parseInt(qty), unit: unit || '' });
+    });
+    const reagents = [];
+    document.querySelectorAll('#reagentList .dynamic-item').forEach(row => {
+        const name = row.querySelector('.autocomplete-wrapper input')?.value.trim();
+        const qty = row.querySelector('.qty-input')?.value;
+        if(name && qty) reagents.push({ name, qty: parseInt(qty) });
+    });
+    
+    const weekNum = document.getElementById('weekNum').value;
+    const weekDay = document.getElementById('weekDay').value;
+    const timeRange = document.getElementById('timeRange').value;
+    const studentCount = document.getElementById('studentCount').value;
+    
+    if (studentCount && (studentCount < 1 || studentCount > 1500)) {
+        alert('学生人数范围应为1-1500人');
+        return;
+    }
+    
+    const newExp = {
+        id: Date.now(),
+        teacherUsername: currentUser.username,
+        expName: expName,
+        weekNum: weekNum,
+        weekDay: weekDay,
+        timeRange: timeRange,
+        equipments, reagents,
+        teacherName: document.getElementById('teacherName').value,
+        studentCount: studentCount ? parseInt(studentCount) : 0,
+        remark: document.getElementById('remark').value,
+        createdAt: Date.now()
+    };
+    const exps = getExperiments();
+    exps.push(newExp);
+    saveExperiments(exps);
+    alert('实验申请提交成功！');
+    document.getElementById('applyForm').reset();
+    document.getElementById('equipmentList').innerHTML = '';
+    document.getElementById('reagentList').innerHTML = '';
+    addEquipmentRow(document.getElementById('equipmentList'), ITEMS.equipments);
+    addReagentRow(document.getElementById('reagentList'), ITEMS.reagents);
+    renderTeacher(currentUser.username);
+};
+
+document.getElementById('teacherLogout').onclick = logout;
+document.getElementById('adminLogout').onclick = logout;
+
+addEquipmentRow(document.getElementById('equipmentList'), ITEMS.equipments);
+addReagentRow(document.getElementById('reagentList'), ITEMS.reagents);
+
+// 页面加载时尝试恢复登录状态
+if (!restoreLoginState()) {
+    showLogin();
+}
+</script>
+</body>
+</html>
